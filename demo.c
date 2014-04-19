@@ -1,4 +1,4 @@
 int main()
 {
-	b=a+b+c;
+	a=a;
 }

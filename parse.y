@@ -4,11 +4,14 @@
 	#include "iostream"
 	#include <vector>
 	#include <string>
+	#include "sstream"
 	int yylex(void);
 	void yyerror (char const *s) {
    		//fprintf (stderr, "%s\n", s);
  	}
  	extern int lineNo;
+ 	extern char* yytext;
+ 	extern int yyleng;
 
  	#define START "START"
  	#define FUNCTION "FUNCTION"
@@ -43,6 +46,7 @@
  	{
  		string code;
  		vector<node*> v;
+ 		string id;
  	};
 
  	node* root;
@@ -100,7 +104,10 @@ external_declaration: 	function_definition					{
 declaration: 			data_type id semi 					{
 																node* tempNode = new node;
 																tempNode->code = DECLARATION;
-																(tempNode->v).push_back($1.Node);
+																node* tempNode1 = new node;
+																tempNode1->id = string($2.s);
+																tempNode1->code = IDENTIFIER;
+																(tempNode->v).push_back(tempNode1);
 																(tempNode->v).push_back($2.Node);
 																$$.Node = tempNode;	
 															}	
@@ -126,7 +133,10 @@ function_definition:	data_type id left_parenthesis right_parenthesis compound_st
 																node* tempNode = new node;
 																tempNode->code = FUNC_DEF;
 																(tempNode->v).push_back($1.Node);
-																(tempNode->v).push_back($2.Node);
+																node* tempNode1 = new node;
+																tempNode1->id = string($2.s);
+																tempNode1->code = IDENTIFIER;
+																(tempNode->v).push_back(tempNode1);
 																(tempNode->v).push_back($5.Node);
 																$$.Node = tempNode;
 															}
@@ -213,19 +223,24 @@ expr:					number
 												{
 													node* tempNode = new node;
 													tempNode->code = NUMBER;
+													tempNode->id = string($1.s);
 													$$.Node = tempNode;
 												}
 						| id 
 												{
 													node* tempNode = new node;
 													tempNode->code = IDENTIFIER;
+													tempNode->id = string($1.s);
 													$$.Node = tempNode;
 												}
 						| number operator expr
 												{
 													node* tempNode = new node;
 													tempNode->code = $2.s;
-													(tempNode->v).push_back($1.Node);
+													node* tempNode1 = new node;
+													tempNode1->id = string($1.s);
+													tempNode1->code = NUMBER;
+													(tempNode->v).push_back(tempNode1);
 													(tempNode->v).push_back($3.Node);
 													$$.Node = tempNode;
 												}
@@ -233,7 +248,10 @@ expr:					number
 												{
 													node* tempNode = new node;
 													tempNode->code = $2.s;
-													(tempNode->v).push_back($1.Node);
+													node* tempNode1 = new node;
+													tempNode1->id = string($1.s);
+													tempNode1->code = IDENTIFIER;
+													(tempNode->v).push_back(tempNode1);
 													(tempNode->v).push_back($3.Node);
 													$$.Node = tempNode;
 												}
@@ -241,6 +259,7 @@ expr:					number
 												{
 													node* tempNode = new node;
 													tempNode->code = FUNC_CALL;
+													tempNode->id = string($1.s);
 													$$.Node = tempNode;
 												}
 						;
@@ -277,18 +296,20 @@ data_type:				DATA_TYPE 	{
 						;
 
 id:						ID 			{
-										node* tempNode = new node;
-										tempNode->code = IDENTIFIER;
-										$$.Node = tempNode;
+										$$.s = (char *)(string(yytext,yyleng).c_str());
 									}
 						| error		{printf("Missing identifier at line no. %d\n",lineNo);}
 						;
 
-integer:				INTEGER 	
+integer:				INTEGER 	{
+										$$.s = (char *)(string(yytext,yyleng).c_str());
+									}
 						| error     {printf("Missing integer at line no. %d\n",lineNo);}
 						;
 
-number:					INTEGER
+number:					INTEGER {
+										$$.s = (char *)(string(yytext,yyleng).c_str());
+								}
 						| FLOATING_POINT
 						| error		{printf("Missing number at line no. %d\n",lineNo);}
 						;
@@ -333,10 +354,52 @@ void dfs(node *n,int cnt)
 		cout<<"NULL";
 		return;
 	}
+
 	cout <<n->code<<endl;
 	for (int i = 0; i < (n->v).size(); ++i)
 	{
 		dfs((n->v)[i],cnt+1);
+	}
+}
+
+string getNewReg()
+{
+	static int count=0;
+	stringstream ss;
+	ss<<++count;
+	return string("r"+ss.str());
+}
+
+string cgen(node *n)
+{
+	if(n==NULL) return "dummy";
+	if(n->code == ASSIGN)
+	{
+	cout<<"1";
+		cout<<cgen((n->v)[0])<<" "<<cgen((n->v)[1]);
+		return "dummy";
+	}
+	if(n->code == IDENTIFIER)
+	{
+		//do nothing
+		return n->id;
+	}
+	if(n->code == ADD)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" "<<r1<<" + "<<r2;
+		return newReg;
+		// printf("r%d = r%d + r%d\n",cnt,cnt,cnt+1);
+	}
+	else
+	{
+		for (int i = 0; i < (n->v).size(); ++i)
+		{
+			cgen((n->v)[i]);
+			return "dummy";
+		}
 	}
 }
 
@@ -347,6 +410,7 @@ int main(){
 
 	dfs(root,0);
 
+	cgen(root);
 	return 0 ;
 }
 
