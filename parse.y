@@ -40,6 +40,7 @@
  	#define MOD "MOD"
  	#define LESS "LESS"
  	#define GREATER "GREATER"
+ 	#define LOOP_STMT "LOOP_STMT"
 
  	using namespace std;
  	struct node
@@ -69,10 +70,88 @@
  
 
 %%
-strt:					stmt_list				{
+strt:					strt_					{
 													root = $1.Node;
 													root->code = START;
 												}
+
+strt_:  					/*empty*/						{
+																node* tempNode = new node;
+																tempNode->code = START_;
+																$$.Node = tempNode;
+															}
+						|external_declaration strt_			{
+																node* tempNode = new node;
+																tempNode->code = START_;
+																(tempNode->v).push_back($1.Node);
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;
+															}
+						;										
+
+external_declaration: 	function_definition					{
+																node* tempNode = new node;
+																tempNode->code = EXTERN_DECL;
+																(tempNode->v).push_back($1.Node);
+																$$.Node = tempNode;
+															}
+						| declaration                       {
+																node* tempNode = new node;
+																tempNode->code = EXTERN_DECL;
+																(tempNode->v).push_back($1.Node);
+																$$.Node = tempNode;	
+															}
+						;
+
+declaration: 			data_type id semi 					{
+																node* tempNode = new node;
+																tempNode->code = DECLARATION;
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;	
+															}	
+						;		
+
+declaration_list: 		declaration 						{
+																node* tempNode = new node;
+																tempNode->code = DECL_LIST;
+																(tempNode->v).push_back($1.Node);
+																$$.Node = tempNode;
+															}
+						| declaration declaration_list		{
+																node* tempNode = new node;
+																tempNode->code = DECL_LIST;
+																(tempNode->v).push_back($1.Node);
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;
+															}
+						;
+
+function_definition:	data_type id left_parenthesis right_parenthesis compound_stmts
+															{
+																node* tempNode = new node;
+																tempNode->code = FUNC_DEF;
+																(tempNode->v).push_back($1.Node);
+																(tempNode->v).push_back($2.Node);
+																(tempNode->v).push_back($5.Node);
+																$$.Node = tempNode;
+															}
+						;
+
+
+compound_stmts:			left_brace right_brace 
+												{
+																node* tempNode = new node;
+																tempNode->code = CMPD_STMT;
+																$$.Node = tempNode;
+												}
+						| left_brace stmt_list right_brace
+												{
+																node* tempNode = new node;
+																tempNode->code = CMPD_STMT;
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;
+												}
+						;
 
 stmt_list:				/*empty*/				{
 													node* tempNode = new node;
@@ -88,7 +167,34 @@ stmt_list:				/*empty*/				{
 												}
 						;
 
-stmt:					
+stmt:					declaration_list
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
+						| compound_stmts
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
+						| conditional_stmt
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
+						| iteration_stmt
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
 						| expr semi 			
 												{
 													node* tempNode = new node;
@@ -98,7 +204,26 @@ stmt:
 												}
 						;
 
+iteration_stmt:			WHILE left_parenthesis expr right_parenthesis stmt 		
+												{
+													node* tempNode = new node;
+													tempNode->code = LOOP_STMT;
+													(tempNode->v).push_back($3.Node);
+													(tempNode->v).push_back($5.Node);
+													$$.Node = tempNode;								
+												}
+						;
 
+
+conditional_stmt:		IF left_parenthesis expr right_parenthesis stmt 
+												{
+													node* tempNode = new node;
+													tempNode->code = COND_STMT;
+													(tempNode->v).push_back($3.Node);
+													(tempNode->v).push_back($5.Node);
+													$$.Node = tempNode;
+												}
+						;
 
 expr:					number 
 												{
@@ -107,7 +232,6 @@ expr:					number
 						| id 
 												{
 													$$.Node = $1.Node;
-													cout << ($$.Node)->id << endl;
 												}
 						| number operator expr
 												{
@@ -124,7 +248,6 @@ expr:					number
 													(tempNode->v).push_back($1.Node);
 													(tempNode->v).push_back($3.Node);
 													$$.Node = tempNode;
-													cout << ($1.Node)->id << endl;
 												}
 						| id left_parenthesis right_parenthesis
 												{
@@ -216,13 +339,6 @@ right_brace:			'}'
 						| error 	{printf("Missing } at line no. %d\n",lineNo);}
 						;
 
-left_bracket:			'['
-						| error 	{printf("Missing [ at line no. %d\n",lineNo);}
-						;
-
-right_bracket:			']'
-						| error 	{printf("Missing ] at line no. %d\n",lineNo);}
-						;
 
 comma:					','
 						| error 	{printf("Missing , at line no. %d\n",lineNo);}
@@ -256,66 +372,131 @@ string getNewReg()
 	return string("r"+ss.str());
 }
 
-string cgen(node *n,int cnt)
+string genNewLabel()
 {
-	// printSpace(cnt);
-	// if(n!=NULL)	cout <<n->code << endl;
+	static int label=0;
+	stringstream ss;
+	ss<<++label;
+	return string("label"+ss.str());
+}
+string cgen(node *n)
+{
 	if(n==NULL) 
 	{
-		// cout << "dummy" << endl;
-		// return "dummy";
-	}
-	else if(n->code == ASSIGN)
-	{
-		
-		cout<<cgen((n->v)[0],cnt+1)<<" = "<<cgen((n->v)[1],cnt+1)<<endl;
 		return "";
 	}
-	else if(n->code == IDENTIFIER || n->code == NUMBER)
+	if(n->code == COND_STMT)
+	{
+		string r1=cgen((n->v)[0]);
+		string trueLabel = genNewLabel();
+		string falseLabel = genNewLabel();
+		cout<<"if "<<r1<<" goto "<<trueLabel<<endl;
+		cout<<"goto "<<falseLabel<<endl;
+		cout<<trueLabel<<":"<<endl;
+		cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<falseLabel<<":"<<endl;
+		return "";
+	}
+	if(n->code == LOOP_STMT)
+	{
+		string entryLabel = genNewLabel();
+		cout<<entryLabel<<":"<<endl;
+		string r1=cgen((n->v)[0]);
+		string bodyLabel = genNewLabel();
+		string exitLabel = genNewLabel();
+		cout<<"if "<<r1<<" goto "<<bodyLabel<<endl;
+		cout<<"goto "<<exitLabel<<endl;
+		cout<<bodyLabel<<":"<<endl;
+		cgen((n->v)[1]);
+		cout<<"goto "<<entryLabel<<endl;
+		cout<<exitLabel<<":"<<endl;
+		return "";
+	}
+	if(n->code == ASSIGN)
+	{
+		
+		cout<<cgen((n->v)[0])<<" = "<<cgen((n->v)[1])<<endl;
+		return "";
+	}
+	if(n->code == IDENTIFIER || n->code == NUMBER)
 	{
 		//do nothing
-		// cout<<"bab"<<n->id;
-		// getchar();
-		// cout<<n->id;
 		return n->id;
 	}
-	else if(n->code == ADD)
+	if(n->code == ADD)
 	{
-		string r1=cgen((n->v)[0],cnt+1);
-		string r2=cgen((n->v)[1],cnt+1);
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
 		string newReg=getNewReg();
 		cout<<newReg<<" = "<<r1<<" + "<<r2<<endl;
 		return newReg;
-		// printf("r%d = r%d + r%d\n",cnt,cnt,cnt+1);
+	}
+	if(n->code == MUL)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" = "<<r1<<" * "<<r2<<endl;
+		return newReg;
+	}
+	if(n->code == SUB)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" = "<<r1<<" - "<<r2<<endl;
+		return newReg;
+	}
+	if(n->code == DIV)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" = "<<r1<<" / "<<r2<<endl;
+		return newReg;
+	}
+	if(n->code == MOD)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" = "<<r1<<" % "<<r2<<endl;
+		return newReg;
+	}
+	if(n->code == LESS)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" = "<<r1<<" < "<<r2<<endl;
+		return newReg;
+	}
+	if(n->code == GREATER)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" = "<<r1<<" > "<<r2<<endl;
+		return newReg;
 	}
 	else
 	{
-			// cout<<"entry\n";
-			// getchar();
-			// if((n->v).size()!=0)cgen((n->v)[0],cnt+1);
-		
 		for (int i = 0; i < (n->v).size(); ++i)
 		{
-			// cout<<"checkabove\n";
-			// getchar();
-			cgen((n->v)[i],cnt+1);
-			// cout<<"check\n";
-			// getchar();
+			cgen((n->v)[i]);
 		}
-		// cout<<"loopexit";
-		// getchar();
 		return "";
 	}
 }
 
 
 int main(){
-	//yydebug = 1;
 	yyparse();
 
 	dfs(root,0);
 
-	 cgen(root,0);
+	 cgen(root);
 	return 0 ;
 }
 
