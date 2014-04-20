@@ -69,7 +69,7 @@
  
 
 %%
-strt:					stmt_list					{
+strt:					stmt_list				{
 													root = $1.Node;
 													root->code = START;
 												}
@@ -102,27 +102,18 @@ stmt:
 
 expr:					number 
 												{
-													node* tempNode = new node;
-													tempNode->code = NUMBER;
-													tempNode->id = string($1.s);
-													$$.Node = tempNode;
+													$$.Node = $1.Node;
 												}
 						| id 
 												{
-													node* tempNode = new node;
-													tempNode->code = IDENTIFIER;
-													tempNode->id = string($1.s);
-													cout <<"nn"<< $1.s << endl;
-													$$.Node = tempNode;
+													$$.Node = $1.Node;
+													cout << ($$.Node)->id << endl;
 												}
 						| number operator expr
 												{
 													node* tempNode = new node;
 													tempNode->code = $2.s;
-													node* tempNode1 = new node;
-													tempNode1->id = string($1.s);
-													tempNode1->code = NUMBER;
-													(tempNode->v).push_back(tempNode1);
+													(tempNode->v).push_back($1.Node);
 													(tempNode->v).push_back($3.Node);
 													$$.Node = tempNode;
 												}
@@ -130,14 +121,10 @@ expr:					number
 												{
 													node* tempNode = new node;
 													tempNode->code = $2.s;
-													node* tempNode1 = new node;
-													cout << $1.s << endl;
-													tempNode1->id = string($1.s);
-													cout << tempNode1->id << endl;
-													tempNode1->code = IDENTIFIER;
-													(tempNode->v).push_back(tempNode1);
+													(tempNode->v).push_back($1.Node);
 													(tempNode->v).push_back($3.Node);
 													$$.Node = tempNode;
+													cout << ($1.Node)->id << endl;
 												}
 						| id left_parenthesis right_parenthesis
 												{
@@ -180,25 +167,36 @@ data_type:				DATA_TYPE 	{
 						;
 
 id:						ID 			{
-										$$.s = (char *)(string(yytext,yyleng).c_str());
-										// $$.s = temp;
-										// $$.s = (char *)(string(yytext,yyleng).c_str());
-										// cout << $$.s << endl;
-										// cout << temp << endl;
+										node* tempNode = new node;
+										tempNode->code = IDENTIFIER;
+										tempNode->id = string(yytext,yyleng);
+										$$.Node = tempNode;
 									}
 						| error		{printf("Missing identifier at line no. %d\n",lineNo);}
 						;
 
 integer:				INTEGER 	{
-										$$.s = (char *)(string(yytext,yyleng).c_str());
+										node* tempNode = new node;
+										tempNode->code = INTEGER;
+										tempNode->id = string(yytext,yyleng);
+										$$.Node = tempNode;
 									}
 						| error     {printf("Missing integer at line no. %d\n",lineNo);}
 						;
 
 number:					INTEGER {
-										$$.s = (char *)(string(yytext,yyleng).c_str());
+										node* tempNode = new node;
+										tempNode->code = NUMBER;
+										tempNode->id = string(yytext,yyleng);
+										$$.Node = tempNode;
 								}
 						| FLOATING_POINT
+								{
+									node* tempNode = new node;
+									tempNode->code = NUMBER;
+									tempNode->id = string(yytext,yyleng);
+									$$.Node = tempNode;
+								}
 						| error		{printf("Missing number at line no. %d\n",lineNo);}
 						;
 
@@ -260,23 +258,24 @@ string getNewReg()
 
 string cgen(node *n,int cnt)
 {
-	printSpace(cnt);
-	if(n!=NULL)	cout <<n->code << endl;
+	// printSpace(cnt);
+	// if(n!=NULL)	cout <<n->code << endl;
 	if(n==NULL) 
 	{
-		cout << "dummy" << endl;
-		return "dummy";
+		// cout << "dummy" << endl;
+		// return "dummy";
 	}
 	else if(n->code == ASSIGN)
 	{
 		
-		cout<<cgen((n->v)[0],cnt+1);//<<" "<<cgen((n->v)[1],cnt+1);
+		cout<<cgen((n->v)[0],cnt+1)<<" = "<<cgen((n->v)[1],cnt+1)<<endl;
+		return "";
 	}
 	else if(n->code == IDENTIFIER || n->code == NUMBER)
 	{
 		//do nothing
-		cout<<"bab"<<n->id;
-		getchar();
+		// cout<<"bab"<<n->id;
+		// getchar();
 		// cout<<n->id;
 		return n->id;
 	}
@@ -285,16 +284,27 @@ string cgen(node *n,int cnt)
 		string r1=cgen((n->v)[0],cnt+1);
 		string r2=cgen((n->v)[1],cnt+1);
 		string newReg=getNewReg();
-		cout<<newReg<<" "<<r1<<" + "<<r2;
+		cout<<newReg<<" = "<<r1<<" + "<<r2<<endl;
 		return newReg;
 		// printf("r%d = r%d + r%d\n",cnt,cnt,cnt+1);
 	}
 	else
 	{
+			// cout<<"entry\n";
+			// getchar();
+			// if((n->v).size()!=0)cgen((n->v)[0],cnt+1);
+		
 		for (int i = 0; i < (n->v).size(); ++i)
 		{
+			// cout<<"checkabove\n";
+			// getchar();
 			cgen((n->v)[i],cnt+1);
+			// cout<<"check\n";
+			// getchar();
 		}
+		// cout<<"loopexit";
+		// getchar();
+		return "";
 	}
 }
 
@@ -305,7 +315,7 @@ int main(){
 
 	dfs(root,0);
 
-	// cgen(root,0);
+	 cgen(root,0);
 	return 0 ;
 }
 
