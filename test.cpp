@@ -6,8 +6,6 @@
 using namespace std;
 int main(int argc, char const *argv[])
 {
-	int count=1;
-	stringstream ss;
-	ss<<++count;
-	cout<<typeof("r"+ss.str());
+	char *yytext = "Shobhit";
+	printf("%s\n", (char *)(string(yytext,8).c_str()));
 } 

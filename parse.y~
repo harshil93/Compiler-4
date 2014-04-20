@@ -74,6 +74,7 @@ strt:					stmt_list					{
 													root->code = START;
 												}
 
+
 stmt_list:				/*empty*/				{
 													node* tempNode = new node;
 													tempNode->code = STMT_LIST;
@@ -99,7 +100,6 @@ stmt:
 						;
 
 
-
 expr:					number 
 												{
 													node* tempNode = new node;
@@ -112,7 +112,6 @@ expr:					number
 													node* tempNode = new node;
 													tempNode->code = IDENTIFIER;
 													tempNode->id = string($1.s);
-													cout <<"nn"<< $1.s << endl;
 													$$.Node = tempNode;
 												}
 						| number operator expr
@@ -131,9 +130,7 @@ expr:					number
 													node* tempNode = new node;
 													tempNode->code = $2.s;
 													node* tempNode1 = new node;
-													cout << $1.s << endl;
 													tempNode1->id = string($1.s);
-													cout << tempNode1->id << endl;
 													tempNode1->code = IDENTIFIER;
 													(tempNode->v).push_back(tempNode1);
 													(tempNode->v).push_back($3.Node);
@@ -181,10 +178,6 @@ data_type:				DATA_TYPE 	{
 
 id:						ID 			{
 										$$.s = (char *)(string(yytext,yyleng).c_str());
-										// $$.s = temp;
-										// $$.s = (char *)(string(yytext,yyleng).c_str());
-										// cout << $$.s << endl;
-										// cout << temp << endl;
 									}
 						| error		{printf("Missing identifier at line no. %d\n",lineNo);}
 						;
@@ -261,7 +254,7 @@ string getNewReg()
 string cgen(node *n,int cnt)
 {
 	printSpace(cnt);
-	if(n!=NULL)	cout <<n->code << endl;
+	if(n!=NULL)	cout << n->code << endl;
 	if(n==NULL) 
 	{
 		cout << "dummy" << endl;
@@ -270,14 +263,11 @@ string cgen(node *n,int cnt)
 	else if(n->code == ASSIGN)
 	{
 		
-		cout<<cgen((n->v)[0],cnt+1);//<<" "<<cgen((n->v)[1],cnt+1);
+		cout<<cgen((n->v)[0],cnt+1)<<" "<<cgen((n->v)[1],cnt+1);
 	}
 	else if(n->code == IDENTIFIER || n->code == NUMBER)
 	{
 		//do nothing
-		cout<<"bab"<<n->id;
-		getchar();
-		// cout<<n->id;
 		return n->id;
 	}
 	else if(n->code == ADD)
@@ -305,7 +295,7 @@ int main(){
 
 	dfs(root,0);
 
-	// cgen(root,0);
+	cgen(root,0);
 	return 0 ;
 }
 

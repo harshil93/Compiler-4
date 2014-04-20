@@ -69,10 +69,94 @@
  
 
 %%
-strt:					stmt_list					{
+strt:					strt_					{
 													root = $1.Node;
 													root->code = START;
 												}
+strt_:  					/*empty*/						{
+																node* tempNode = new node;
+																tempNode->code = START_;
+																$$.Node = tempNode;
+															}
+						|external_declaration strt_			{
+																node* tempNode = new node;
+																tempNode->code = START_;
+																(tempNode->v).push_back($1.Node);
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;
+															}
+						;										
+
+external_declaration: 	function_definition					{
+																node* tempNode = new node;
+																tempNode->code = EXTERN_DECL;
+																(tempNode->v).push_back($1.Node);
+																$$.Node = tempNode;
+															}
+						| declaration                       {
+																node* tempNode = new node;
+																tempNode->code = EXTERN_DECL;
+																(tempNode->v).push_back($1.Node);
+																$$.Node = tempNode;	
+															}
+						;
+
+declaration: 			data_type id semi 					{
+																node* tempNode = new node;
+																tempNode->code = DECLARATION;
+																node* tempNode1 = new node;
+																tempNode1->id = string($2.s);
+																tempNode1->code = IDENTIFIER;
+																(tempNode->v).push_back(tempNode1);
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;	
+															}	
+						;		
+
+declaration_list: 		declaration 						{
+																node* tempNode = new node;
+																tempNode->code = DECL_LIST;
+																(tempNode->v).push_back($1.Node);
+																$$.Node = tempNode;
+															}
+						| declaration declaration_list		{
+																node* tempNode = new node;
+																tempNode->code = DECL_LIST;
+																(tempNode->v).push_back($1.Node);
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;
+															}
+						;
+
+function_definition:	data_type id left_parenthesis right_parenthesis compound_stmts
+															{
+																node* tempNode = new node;
+																tempNode->code = FUNC_DEF;
+																(tempNode->v).push_back($1.Node);
+																node* tempNode1 = new node;
+																tempNode1->id = string($2.s);
+																tempNode1->code = IDENTIFIER;
+																(tempNode->v).push_back(tempNode1);
+																(tempNode->v).push_back($5.Node);
+																$$.Node = tempNode;
+															}
+						;
+
+
+compound_stmts:			left_brace right_brace 
+												{
+																node* tempNode = new node;
+																tempNode->code = CMPD_STMT;
+																$$.Node = tempNode;
+												}
+						| left_brace stmt_list right_brace
+												{
+																node* tempNode = new node;
+																tempNode->code = CMPD_STMT;
+																(tempNode->v).push_back($2.Node);
+																$$.Node = tempNode;
+												}
+						;
 
 stmt_list:				/*empty*/				{
 													node* tempNode = new node;
@@ -88,7 +172,34 @@ stmt_list:				/*empty*/				{
 												}
 						;
 
-stmt:					
+stmt:					declaration_list
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
+						| compound_stmts
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
+						| conditional_stmt
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
+						| iteration_stmt
+												{
+													node* tempNode = new node;
+													tempNode->code = STMT;
+													(tempNode->v).push_back($1.Node);
+													$$.Node = tempNode;
+												}
 						| expr semi 			
 												{
 													node* tempNode = new node;
@@ -98,7 +209,15 @@ stmt:
 												}
 						;
 
-
+conditional_stmt:		IF left_parenthesis expr right_parenthesis stmt 
+												{
+													node* tempNode = new node;
+													tempNode->code = COND_STMT;
+													(tempNode->v).push_back($3.Node);
+													(tempNode->v).push_back($5.Node);
+													$$.Node = tempNode;
+												}
+						;
 
 expr:					number 
 												{
@@ -112,7 +231,6 @@ expr:					number
 													node* tempNode = new node;
 													tempNode->code = IDENTIFIER;
 													tempNode->id = string($1.s);
-													cout <<"nn"<< $1.s << endl;
 													$$.Node = tempNode;
 												}
 						| number operator expr
@@ -131,9 +249,7 @@ expr:					number
 													node* tempNode = new node;
 													tempNode->code = $2.s;
 													node* tempNode1 = new node;
-													cout << $1.s << endl;
 													tempNode1->id = string($1.s);
-													cout << tempNode1->id << endl;
 													tempNode1->code = IDENTIFIER;
 													(tempNode->v).push_back(tempNode1);
 													(tempNode->v).push_back($3.Node);
@@ -181,10 +297,6 @@ data_type:				DATA_TYPE 	{
 
 id:						ID 			{
 										$$.s = (char *)(string(yytext,yyleng).c_str());
-										// $$.s = temp;
-										// $$.s = (char *)(string(yytext,yyleng).c_str());
-										// cout << $$.s << endl;
-										// cout << temp << endl;
 									}
 						| error		{printf("Missing identifier at line no. %d\n",lineNo);}
 						;
@@ -261,7 +373,7 @@ string getNewReg()
 string cgen(node *n,int cnt)
 {
 	printSpace(cnt);
-	if(n!=NULL)	cout <<n->code << endl;
+	if(n!=NULL)	cout << n->code << endl;
 	if(n==NULL) 
 	{
 		cout << "dummy" << endl;
@@ -270,14 +382,11 @@ string cgen(node *n,int cnt)
 	else if(n->code == ASSIGN)
 	{
 		
-		cout<<cgen((n->v)[0],cnt+1);//<<" "<<cgen((n->v)[1],cnt+1);
+		cout<<cgen((n->v)[0],cnt+1)<<" "<<cgen((n->v)[1],cnt+1);
 	}
 	else if(n->code == IDENTIFIER || n->code == NUMBER)
 	{
 		//do nothing
-		cout<<"bab"<<n->id;
-		getchar();
-		// cout<<n->id;
 		return n->id;
 	}
 	else if(n->code == ADD)
@@ -305,7 +414,7 @@ int main(){
 
 	dfs(root,0);
 
-	// cgen(root,0);
+	cgen(root,0);
 	return 0 ;
 }
 
