@@ -11,8 +11,8 @@ map<string,int> varmap;
 %%
 [i][f] {return(OTH);}
 [g][o][t][o] {return(OTH);}
-[a-zA-z]+[a-zA-z0-9]+ {return(ID);}
-[a-zA-z]+[a-zA-z0-9]+[:] {return(OTH);}
+[a-zA-z]+[a-zA-z0-9]* {return(ID);}
+[a-zA-z]+[a-zA-z0-9]*[:] {return(OTH);}
 <<EOF>> {return(EO);}
 (.|\n) {return(OTH);}
 %%
