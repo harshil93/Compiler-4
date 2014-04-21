@@ -41,6 +41,7 @@
  	#define LESS "LESS"
  	#define GREATER "GREATER"
  	#define LOOP_STMT "LOOP_STMT"
+ 	#define EQUALITY "EQUALITY"
 
  	using namespace std;
  	struct node
@@ -268,6 +269,7 @@ assignment_op:		 	'='				{$$.s = ASSIGN;}
 
 relational_op:			'<'				{$$.s = LESS;}
 						| '>'			{$$.s = GREATER;}
+						| EQ_OP			{$$.s = EQUALITY;}
 						;
 
 binary_op:				'+'				{$$.s = ADD;}
@@ -478,6 +480,14 @@ string cgen(node *n)
 		string r2=cgen((n->v)[1]);
 		string newReg=getNewReg();
 		cout<<newReg<<" = "<<r1<<" > "<<r2<<endl;
+		return newReg;
+	}
+	if(n->code == EQUALITY)
+	{
+		string r1=cgen((n->v)[0]);
+		string r2=cgen((n->v)[1]);
+		string newReg=getNewReg();
+		cout<<newReg<<" = "<<r1<<" == "<<r2<<endl;
 		return newReg;
 	}
 	else
