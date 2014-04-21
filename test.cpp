@@ -6,6 +6,7 @@
 using namespace std;
 int main(int argc, char const *argv[])
 {
-	char *yytext = "Shobhit";
-	printf("%s\n", (char *)(string(yytext,8).c_str()));
-} 
+	char *yytext;
+	yytext = "Shobhit";
+	cout<<yytext;
+}

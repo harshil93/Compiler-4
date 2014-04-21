@@ -5,6 +5,7 @@
 	#include <vector>
 	#include <string>
 	#include "sstream"
+	#include <map>
 	int yylex(void);
 	void yyerror (char const *s) {
    		//fprintf (stderr, "%s\n", s);
@@ -42,6 +43,9 @@
  	#define GREATER "GREATER"
  	#define LOOP_STMT "LOOP_STMT"
  	#define EQUALITY "EQUALITY"
+ 	#define INT "int"
+ 	#define FLOAT "float"
+ 	#define ERR_TYPE "err_type"
 
  	using namespace std;
  	struct node
@@ -49,6 +53,7 @@
  		string code;
  		vector<node*> v;
  		string id;
+ 		string dataType;
  	};
 
  	node* root;
@@ -59,6 +64,11 @@
 		char* s;
 	};
 	#define YYSTYPE utype
+
+	map<string,string> symbolTable;
+
+	bool semanticError = false;
+	bool syntacticError = false;
 %}
 
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
@@ -107,8 +117,16 @@ external_declaration: 	function_definition					{
 declaration: 			data_type id semi 					{
 																node* tempNode = new node;
 																tempNode->code = DECLARATION;
-																(tempNode->v).push_back($2.Node);
-																$$.Node = tempNode;	
+																if(symbolTable.find(($2.Node)->id)==symbolTable.end())
+																{
+																	symbolTable[($2.Node)->id] = ($1.Node)->id;
+																}
+																else
+																{
+																	semanticError = true;
+																	cout << "Multiple declaration of" << ($2.Node)->id << " at line no. " << lineNo+1 << endl;
+																}
+																$$.Node = tempNode;
 															}	
 						;		
 
@@ -232,29 +250,73 @@ expr:					number
 												}
 						| id 
 												{
+													if(symbolTable.find(($1.Node)->id) == symbolTable.end())
+													{
+														semanticError = true;
+														cout << "Undeclared variable " << ($1.Node)->id << " line no. " << lineNo+1 << endl;	
+													}
+													else
+													{
+														($$.Node)->dataType = symbolTable[($1.Node)->id];
+													} 
 													$$.Node = $1.Node;
 												}
 						| number operator expr
 												{
 													node* tempNode = new node;
-													tempNode->code = $2.s;
+													if($2.s == NULL)
+														tempNode->code = "" ;
+													else{
+														tempNode->code = string($2.s);
+													}
 													(tempNode->v).push_back($1.Node);
 													(tempNode->v).push_back($3.Node);
+													if(($1.Node)->dataType != ($3.Node)->dataType)
+													{
+														semanticError = true;
+														printf("Mismatching data types of operands at %d\n",lineNo+1);
+													}
+													else
+													{
+														tempNode->dataType = ($3.Node)->dataType;
+													}
 													$$.Node = tempNode;
 												}
 						| id operator expr
 												{
 													node* tempNode = new node;
-													tempNode->code = $2.s;
+													if($2.s == NULL)
+														tempNode->code = "" ;
+													else{
+														tempNode->code = string($2.s);
+													}
 													(tempNode->v).push_back($1.Node);
 													(tempNode->v).push_back($3.Node);
+													if(symbolTable.find(($1.Node)->id) == symbolTable.end())
+													{
+														semanticError = true;
+														cout << "Undeclared variable " << ($1.Node)->id << " line no. " << lineNo+1 << endl;	
+													}
+													else if(symbolTable[($1.Node)->id] != ($3.Node)->dataType)
+													{
+														semanticError = true;
+														printf("Mismatching data types of operands at %d\n",lineNo+1);
+													}
+													else
+													{
+														tempNode->dataType = ($3.Node)->dataType;
+													}
 													$$.Node = tempNode;
 												}
 						| id left_parenthesis right_parenthesis
 												{
 													node* tempNode = new node;
 													tempNode->code = FUNC_CALL;
-													tempNode->id = string($1.s);
+													if($1.s == NULL)
+														tempNode->code = "" ;
+													else{
+														tempNode->id = string($1.s);
+													}
 													$$.Node = tempNode;
 												}
 						;
@@ -262,33 +324,46 @@ expr:					number
 operator: 				assignment_op			{$$.s = $1.s;}
 						| relational_op			{$$.s = $1.s;}
 						| binary_op				{$$.s = $1.s;}
-						| error			{printf("Missing operator at line no. %d\n",lineNo);}
+						| error			
+						{
+							syntacticError = true;
+							printf("Missing operator at line no. %d\n",lineNo+1);
+						}
 						
-assignment_op:		 	'='				{$$.s = ASSIGN;}
+assignment_op:		 	'='				{$$.s = strdup(ASSIGN);}
 						;
 
-relational_op:			'<'				{$$.s = LESS;}
-						| '>'			{$$.s = GREATER;}
-						| EQ_OP			{$$.s = EQUALITY;}
+relational_op:			'<'				{$$.s = strdup(LESS);}
+						| '>'			{$$.s = strdup(GREATER);}
+						| EQ_OP			{$$.s = strdup(EQUALITY);}
 						;
 
-binary_op:				'+'				{$$.s = ADD;}
-						| '-'			{$$.s = SUB;}
-						| '*'			{$$.s = MUL;}
-						| '/'			{$$.s = DIV;}
-						| '%'			{$$.s = MOD;}
+binary_op:				'+'				{$$.s = strdup(ADD);}
+						| '-'			{$$.s = strdup(SUB);}
+						| '*'			{$$.s = strdup(MUL);}
+						| '/'			{$$.s = strdup(DIV);}
+						| '%'			{$$.s = strdup(MOD);}
 						;
 
 semi:					';'
-						| error		{printf("Missing semicolon at line no. %d\n",lineNo);}
+						| error		
+						{
+							syntacticError = true;
+							printf("Missing semicolon at line no. %d\n",lineNo+1);
+						}
 						;
 
 data_type:				DATA_TYPE 	{
 										node* tempNode = new node;
 										tempNode->code = D_TYPE;
+										tempNode->id = string(yytext,yyleng);	
 										$$.Node = tempNode;
 									}
-						| error		{printf("Missing data type at line no. %d\n",lineNo);}
+						| error		
+						{
+							syntacticError = true;
+							printf("Missing data type at line no. %d\n",lineNo+1);
+						}
 						;
 
 id:						ID 			{
@@ -297,21 +372,31 @@ id:						ID 			{
 										tempNode->id = string(yytext,yyleng);
 										$$.Node = tempNode;
 									}
-						| error		{printf("Missing identifier at line no. %d\n",lineNo);}
+						| error		
+						{
+							syntacticError = true;
+							printf("Missing identifier at line no. %d\n",lineNo+1);
+						}
 						;
 
 integer:				INTEGER 	{
 										node* tempNode = new node;
-										tempNode->code = INTEGER;
+										tempNode->code = NUMBER;
+										tempNode->dataType = "int";
 										tempNode->id = string(yytext,yyleng);
 										$$.Node = tempNode;
 									}
-						| error     {printf("Missing integer at line no. %d\n",lineNo);}
+						| error     
+						{
+							syntacticError = true;
+							printf("Missing integer at line no. %d\n",lineNo+1);
+						}
 						;
 
 number:					INTEGER {
 										node* tempNode = new node;
 										tempNode->code = NUMBER;
+										tempNode->dataType = "int";
 										tempNode->id = string(yytext,yyleng);
 										$$.Node = tempNode;
 								}
@@ -319,31 +404,56 @@ number:					INTEGER {
 								{
 									node* tempNode = new node;
 									tempNode->code = NUMBER;
+									tempNode->dataType = "float";
 									tempNode->id = string(yytext,yyleng);
 									$$.Node = tempNode;
 								}
-						| error		{printf("Missing number at line no. %d\n",lineNo);}
+						| error		
+						{
+							syntacticError = true;
+							printf("Missing number at line no. %d\n",lineNo+1);
+						}
 						;
 
 left_parenthesis:		'('
-						| error 	{printf("Missing ( at line no. %d\n",lineNo);}
+						| error 	
+						{
+							syntacticError = true;
+							printf("Missing ( at line no. %d\n",lineNo+1);
+						}
 						;
 
 right_parenthesis:		')'
-						| error 	{printf("Missing ) at line no. %d\n",lineNo);}
+						| error 	
+						{
+							syntacticError = true;
+							printf("Missing ) at line no. %d\n",lineNo+1);
+						}
 						;
 
 left_brace:				'{'
-						| error 	{printf("Missing { at line no. %d\n",lineNo);}
+						| error 	
+						{
+							syntacticError = true;
+							printf("Missing { at line no. %d\n",lineNo+1);
+						}
 						;
 
 right_brace:			'}'
-						| error 	{printf("Missing } at line no. %d\n",lineNo);}
+						| error 	
+						{
+							syntacticError = true;
+							printf("Missing } at line no. %d\n",lineNo+1);
+						}
 						;
 
 
 comma:					','
-						| error 	{printf("Missing , at line no. %d\n",lineNo);}
+						| error 	
+						{
+							syntacticError = true;
+							printf("Missing , at line no. %d\n",lineNo+1);
+						}
 						;
 %%
 void printSpace(int cnt)
@@ -504,8 +614,16 @@ string cgen(node *n)
 int main(){
 	yyparse();
 
-	dfs(root,0);
-	 cgen(root);
+	for(auto it = symbolTable.begin();it!=symbolTable.end();it++)
+	{
+		cout << it->first << " " << it->second << endl;
+	}
+
+	if(!syntacticError && !semanticError)
+	{
+		dfs(root,0);
+		cgen(root);
+	}
 	return 0 ;
 }
 
