@@ -1,0 +1,12 @@
+main:
+move $t0 $sp
+addui $sp $sp -12
+lw $a0 4($t0)
+sw $a0 0($sp)
+addiu $sp $sp -4
+lw $a0 8($t0)
+lw $t1 4($sp)
+addiu $sp $sp 4
+add $a0 $a0 $t1
+sw $a0 0($t0)
+jr $ra
