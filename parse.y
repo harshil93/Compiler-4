@@ -505,7 +505,6 @@ int main(){
 	yyparse();
 
 	dfs(root,0);
-
 	 cgen(root);
 	return 0 ;
 }

@@ -1,11 +1,15 @@
 
 int main()
 {
-	while(a<b)
+	int a;
+	a=3;
+	b=5;
+	while(a<b+1)
 	{
-		if(a<b)
+		a=a+1;
+		if(b<6)
 		{
-			a=2;
+			a=a+1;
 		}
 	}
 }

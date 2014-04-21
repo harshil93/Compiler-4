@@ -1,0 +1,3 @@
+Missing operator at line no. 6
+Missing identifier at line no. 6
+Missing ( at line no. 6
