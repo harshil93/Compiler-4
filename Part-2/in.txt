@@ -1,20 +1,11 @@
-a = 3
-b = 5
+a1 = 5
+r1 = a1 > 0
+if r1 goto label1:
+goto label2:
 label1:
-r1 = b + 1
-r2 = a < r1
-if r2 goto label2:
-goto label3:
+a2 = 10
+r2 = a2 - 1
+a2 = r2
 label2:
-r3 = a + 1
-a = r3
-r4 = b < 6
-if r4 goto label4:
-goto label5:
-label4:
-r5 = a + 1
-a = r5
-label5:
-goto label1:
-label3:
-
+r4 = a1 - 2
+a1 = r4
