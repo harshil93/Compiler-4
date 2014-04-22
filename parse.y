@@ -6,10 +6,14 @@
 	#include <string>
 	#include "sstream"
 	#include <map>
+	#include <vector>
+	#include <string.h>
 	int yylex(void);
 	void yyerror (char const *s) {
    		//fprintf (stderr, "%s\n", s);
  	}
+
+ 	void printSymbolTable();
  	extern int lineNo;
  	extern char* yytext;
  	extern int yyleng;
@@ -65,10 +69,22 @@
 	};
 	#define YYSTYPE utype
 
-	map<string,string> symbolTable;
+	vector< map<string,string> > symbolTable;
+
+
+	int scope = 0;
 
 	bool semanticError = false;
 	bool syntacticError = false;
+	
+	int findIdentifierScope(string id)
+	{
+		for(int i=scope;i>=0;i--)
+		{
+			if(symbolTable[i].find(id) != symbolTable[i].end())	return scope;
+		}
+		return -1;
+	}
 %}
 
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
@@ -117,14 +133,18 @@ external_declaration: 	function_definition					{
 declaration: 			data_type id semi 					{
 																node* tempNode = new node;
 																tempNode->code = DECLARATION;
-																if(symbolTable.find(($2.Node)->id)==symbolTable.end())
+																
+																
+																// printSymbolTable();
+																
+																if(symbolTable[scope].find(($2.Node)->id)==symbolTable[scope].end())
 																{
-																	symbolTable[($2.Node)->id] = ($1.Node)->id;
+																	symbolTable[scope][($2.Node)->id] = ($1.Node)->id;
 																}
 																else
 																{
 																	semanticError = true;
-																	cout << "Multiple declaration of" << ($2.Node)->id << " at line no. " << lineNo+1 << endl;
+																	cout << "Multiple declaration of " << ($2.Node)->id << " at line no. " << lineNo+1 << endl;
 																}
 																$$.Node = tempNode;
 															}	
@@ -157,18 +177,34 @@ function_definition:	data_type id left_parenthesis right_parenthesis compound_st
 						;
 
 
-compound_stmts:			left_brace right_brace 
-												{
-																node* tempNode = new node;
-																tempNode->code = CMPD_STMT;
-																$$.Node = tempNode;
+compound_stmts:		
+						left_brace				{
+													map<string,string>	temp;
+													symbolTable.push_back(temp);
+													scope++;
 												}
-						| left_brace stmt_list right_brace
+						right_brace 
 												{
-																node* tempNode = new node;
-																tempNode->code = CMPD_STMT;
-																(tempNode->v).push_back($2.Node);
-																$$.Node = tempNode;
+													node* tempNode = new node;
+													tempNode->code = CMPD_STMT;
+													$$.Node = tempNode;
+													symbolTable.pop_back();
+													scope--;
+												}
+						| left_brace			
+												{
+													map<string,string>	temp;
+													symbolTable.push_back(temp);
+													scope++;
+												}
+						 stmt_list right_brace
+												{
+													node* tempNode = new node;
+													tempNode->code = CMPD_STMT;
+													(tempNode->v).push_back($2.Node);
+													$$.Node = tempNode;
+													symbolTable.pop_back();
+													scope--;	
 												}
 						;
 
@@ -250,14 +286,15 @@ expr:					number
 												}
 						| id 
 												{
-													if(symbolTable.find(($1.Node)->id) == symbolTable.end())
+													int idScope = findIdentifierScope(($1.Node)->id);
+													if(idScope == -1)
 													{
 														semanticError = true;
 														cout << "Undeclared variable " << ($1.Node)->id << " line no. " << lineNo+1 << endl;	
 													}
 													else
 													{
-														($$.Node)->dataType = symbolTable[($1.Node)->id];
+														($$.Node)->dataType = symbolTable[idScope][($1.Node)->id];
 													} 
 													$$.Node = $1.Node;
 												}
@@ -292,12 +329,14 @@ expr:					number
 													}
 													(tempNode->v).push_back($1.Node);
 													(tempNode->v).push_back($3.Node);
-													if(symbolTable.find(($1.Node)->id) == symbolTable.end())
+													
+													int idScope = findIdentifierScope(($1.Node)->id);
+													if(idScope == -1)
 													{
 														semanticError = true;
 														cout << "Undeclared variable " << ($1.Node)->id << " line no. " << lineNo+1 << endl;	
 													}
-													else if(symbolTable[($1.Node)->id] != ($3.Node)->dataType)
+													else if(symbolTable[idScope][($1.Node)->id] != ($3.Node)->dataType)
 													{
 														semanticError = true;
 														printf("Mismatching data types of operands at %d\n",lineNo+1);
@@ -460,6 +499,15 @@ void printSpace(int cnt)
 {
 	for(int i=0;i<cnt;i++) cout<<"\t";
 }
+
+void printSymbolTable(){
+	for(int i = 0 ; i< symbolTable.size(); i++ ){
+		cout<<"Scope "<<i<<endl;
+		for ( auto it = symbolTable[i].begin() ; it!= symbolTable[i].end() ; it++){
+			cout<<it->first<<" "<<it->second<<endl;
+		}
+	}
+}
 void dfs(node *n,int cnt)
 {
 
@@ -489,13 +537,24 @@ string genNewLabel()
 	static int label=0;
 	stringstream ss;
 	ss<<++label;
-	return string("label"+ss.str());
+	return string("label"+ss.str()+":");
 }
 string cgen(node *n)
 {
 	if(n==NULL) 
 	{
 		return "";
+	}
+	if(n->code == CMPD_STMT)
+	{
+		scope++;
+		map<string,string> temp;
+		symbolTable.push_back(temp);
+		
+		if((n->v).size()==1) cgen((n->v)[0]);
+
+		scope--;
+		symbolTable.pop_back();
 	}
 	if(n->code == COND_STMT)
 	{
@@ -504,25 +563,25 @@ string cgen(node *n)
 		string falseLabel = genNewLabel();
 		cout<<"if "<<r1<<" goto "<<trueLabel<<endl;
 		cout<<"goto "<<falseLabel<<endl;
-		cout<<trueLabel<<":"<<endl;
+		cout<<trueLabel<<endl;
 		cgen((n->v)[1]);
 		string newReg=getNewReg();
-		cout<<falseLabel<<":"<<endl;
+		cout<<falseLabel<<endl;
 		return "";
 	}
 	if(n->code == LOOP_STMT)
 	{
 		string entryLabel = genNewLabel();
-		cout<<entryLabel<<":"<<endl;
+		cout<<entryLabel<<endl;
 		string r1=cgen((n->v)[0]);
 		string bodyLabel = genNewLabel();
 		string exitLabel = genNewLabel();
 		cout<<"if "<<r1<<" goto "<<bodyLabel<<endl;
 		cout<<"goto "<<exitLabel<<endl;
-		cout<<bodyLabel<<":"<<endl;
+		cout<<bodyLabel<<endl;
 		cgen((n->v)[1]);
 		cout<<"goto "<<entryLabel<<endl;
-		cout<<exitLabel<<":"<<endl;
+		cout<<exitLabel<<endl;
 		return "";
 	}
 	if(n->code == ASSIGN)
@@ -533,8 +592,10 @@ string cgen(node *n)
 	}
 	if(n->code == IDENTIFIER || n->code == NUMBER)
 	{
-		//do nothing
-		return n->id;
+		stringstream ss;
+		ss<<scope;
+
+		return n->id+ss.str();
 	}
 	if(n->code == ADD)
 	{
@@ -612,18 +673,26 @@ string cgen(node *n)
 
 
 int main(){
+
+	map<string,string> temp;
+	symbolTable.push_back(temp);
 	yyparse();
 
-	for(auto it = symbolTable.begin();it!=symbolTable.end();it++)
+	/*for(auto it = symbolTable.begin();it!=symbolTable.end();it++)
 	{
 		cout << it->first << " " << it->second << endl;
-	}
+	}*/
 
 	if(!syntacticError && !semanticError)
 	{
 		dfs(root,0);
+
+		symbolTable.clear();
+		map<string,string> temp;
+		symbolTable.push_back(temp);
+		scope = 0;
+
 		cgen(root);
 	}
 	return 0 ;
 }
-
