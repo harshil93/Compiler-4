@@ -201,7 +201,7 @@ compound_stmts:
 												{
 													node* tempNode = new node;
 													tempNode->code = CMPD_STMT;
-													(tempNode->v).push_back($2.Node);
+													(tempNode->v).push_back($3.Node);
 													$$.Node = tempNode;
 													symbolTable.pop_back();
 													scope--;	
@@ -555,6 +555,7 @@ string cgen(node *n)
 
 		scope--;
 		symbolTable.pop_back();
+		return "";
 	}
 	if(n->code == COND_STMT)
 	{
@@ -590,12 +591,15 @@ string cgen(node *n)
 		cout<<cgen((n->v)[0])<<" = "<<cgen((n->v)[1])<<endl;
 		return "";
 	}
-	if(n->code == IDENTIFIER || n->code == NUMBER)
+	if(n->code == IDENTIFIER)
 	{
 		stringstream ss;
 		ss<<scope;
 
 		return n->id+ss.str();
+	}
+	if(n->code == NUMBER){
+		return n->id;
 	}
 	if(n->code == ADD)
 	{
